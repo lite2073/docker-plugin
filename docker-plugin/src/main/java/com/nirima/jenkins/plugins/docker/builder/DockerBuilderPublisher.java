@@ -26,6 +26,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.plugins.tokenmacro.MacroEvaluationException;
 import org.jenkinsci.plugins.tokenmacro.TokenMacro;
+import org.jenkinsci.remoting.RoleChecker;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import shaded.com.google.common.base.Joiner;
@@ -244,6 +245,11 @@ public class DockerBuilderPublisher extends Builder implements Serializable {
                     } catch (DockerException e) {
                         throw Throwables.propagate(e);
                     }
+                }
+
+                @Override
+                public void checkRoles(RoleChecker checker) throws SecurityException {
+                    //no-op at this point
                 }
             });
         }
