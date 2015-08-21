@@ -15,6 +15,7 @@ import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.Image;
 import com.github.dockerjava.api.model.Version;
 import com.github.dockerjava.core.NameParser;
+import com.nirima.jenkins.plugins.docker.ec2.EC2DockerHostProvisioner;
 import com.nirima.jenkins.plugins.docker.launcher.DockerComputerLauncher;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
@@ -57,6 +58,7 @@ public class DockerCloud extends Cloud {
     private static final Logger LOGGER = LoggerFactory.getLogger(DockerCloud.class);
 
     private List<DockerTemplate> templates;
+    public final String amiLabel;
     public final String serverUrl;
     private int connectTimeout;
     public final int readTimeout;
@@ -79,6 +81,7 @@ public class DockerCloud extends Cloud {
     @Deprecated
     public DockerCloud(String name,
                        List<? extends DockerTemplate> templates,
+                       String amiLabel,
                        String serverUrl,
                        String containerCapStr,
                        int connectTimeout,
@@ -89,6 +92,8 @@ public class DockerCloud extends Cloud {
         Preconditions.checkNotNull(serverUrl);
         this.version = version;
         this.credentialsId = credentialsId;
+        // TODO: validate AMI label against list of registered AMI labels
+        this.amiLabel = amiLabel;
         this.serverUrl = serverUrl;
         this.connectTimeout = connectTimeout;
         this.readTimeout = readTimeout;
@@ -109,6 +114,7 @@ public class DockerCloud extends Cloud {
     @DataBoundConstructor
     public DockerCloud(String name,
                        List<? extends DockerTemplate> templates,
+                       String amiLabel,
                        String serverUrl,
                        int containerCap,
                        int connectTimeout,
@@ -119,6 +125,8 @@ public class DockerCloud extends Cloud {
         Preconditions.checkNotNull(serverUrl);
         this.version = version;
         this.credentialsId = credentialsId;
+        // TODO: validate AMI label against list of registered AMI labels
+        this.amiLabel = amiLabel;
         this.serverUrl = serverUrl;
         this.connectTimeout = connectTimeout;
         this.readTimeout = readTimeout;
@@ -186,6 +194,8 @@ public class DockerCloud extends Cloud {
 
     @Override
     public synchronized Collection<NodeProvisioner.PlannedNode> provision(Label label, int excessWorkload) {
+        EC2DockerHostProvisioner.isEC2PluginInstalled();
+
         try {
             LOGGER.info("Asked to provision {} slave(s) for: {}", new Object[]{excessWorkload, label});
 
@@ -517,27 +527,67 @@ public class DockerCloud extends Cloud {
     public String toString() {
         return MoreObjects.toStringHelper(this)
                 .add("name", name)
+                .add("amiLabel", amiLabel)
                 .add("serverUrl", serverUrl)
                 .toString();
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((amiLabel == null) ? 0 : amiLabel.hashCode());
+        result = prime * result + connectTimeout;
+        result = prime * result + containerCap;
+        result = prime * result + ((credentialsId == null) ? 0 : credentialsId.hashCode());
+        result = prime * result + readTimeout;
+        result = prime * result + ((serverUrl == null) ? 0 : serverUrl.hashCode());
+        result = prime * result + ((templates == null) ? 0 : templates.hashCode());
+        result = prime * result + ((version == null) ? 0 : version.hashCode());
+        return result;
+    }
 
-        DockerCloud that = (DockerCloud) o;
-
-        if (containerCap != that.containerCap) return false;
-        if (connectTimeout != that.connectTimeout) return false;
-        if (readTimeout != that.readTimeout) return false;
-        if (templates != null ? !templates.equals(that.templates) : that.templates != null) return false;
-        if (serverUrl != null ? !serverUrl.equals(that.serverUrl) : that.serverUrl != null) return false;
-        if (version != null ? !version.equals(that.version) : that.version != null) return false;
-        if (credentialsId != null ? !credentialsId.equals(that.credentialsId) : that.credentialsId != null)
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (obj == null)
             return false;
-        return !(connection != null ? !connection.equals(that.connection) : that.connection != null);
-
+        if (getClass() != obj.getClass())
+            return false;
+        DockerCloud other = (DockerCloud) obj;
+        if (amiLabel == null) {
+            if (other.amiLabel != null)
+                return false;
+        } else if (!amiLabel.equals(other.amiLabel))
+            return false;
+        if (connectTimeout != other.connectTimeout)
+            return false;
+        if (containerCap != other.containerCap)
+            return false;
+        if (credentialsId == null) {
+            if (other.credentialsId != null)
+                return false;
+        } else if (!credentialsId.equals(other.credentialsId))
+            return false;
+        if (readTimeout != other.readTimeout)
+            return false;
+        if (serverUrl == null) {
+            if (other.serverUrl != null)
+                return false;
+        } else if (!serverUrl.equals(other.serverUrl))
+            return false;
+        if (templates == null) {
+            if (other.templates != null)
+                return false;
+        } else if (!templates.equals(other.templates))
+            return false;
+        if (version == null) {
+            if (other.version != null)
+                return false;
+        } else if (!version.equals(other.version))
+            return false;
+        return true;
     }
 
     @Extension
@@ -548,6 +598,7 @@ public class DockerCloud extends Cloud {
         }
 
         public FormValidation doTestConnection(
+                @QueryParameter String amiLabel,
                 @QueryParameter String serverUrl,
                 @QueryParameter String credentialsId,
                 @QueryParameter String version
