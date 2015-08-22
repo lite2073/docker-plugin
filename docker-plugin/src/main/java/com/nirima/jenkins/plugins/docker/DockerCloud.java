@@ -1,5 +1,27 @@
 package com.nirima.jenkins.plugins.docker;
 
+import static com.nirima.jenkins.plugins.docker.client.ClientConfigBuilderForPlugin.dockerClientConfig;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.concurrent.Callable;
+
+import javax.annotation.CheckForNull;
+import javax.servlet.ServletException;
+import javax.ws.rs.ProcessingException;
+
+import org.kohsuke.stapler.AncestorInPath;
+import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.QueryParameter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.cloudbees.plugins.credentials.CredentialsMatchers;
 import com.cloudbees.plugins.credentials.CredentialsNameProvider;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
@@ -15,37 +37,26 @@ import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.Image;
 import com.github.dockerjava.api.model.Version;
 import com.github.dockerjava.core.NameParser;
-import com.nirima.jenkins.plugins.docker.ec2.EC2DockerHostProvisioner;
 import com.nirima.jenkins.plugins.docker.launcher.DockerComputerLauncher;
+
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
-import hudson.model.*;
+import hudson.model.Computer;
+import hudson.model.Descriptor;
+import hudson.model.ItemGroup;
+import hudson.model.Label;
+import hudson.model.Node;
 import hudson.slaves.Cloud;
 import hudson.slaves.ComputerLauncher;
 import hudson.slaves.NodeProvisioner;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import jenkins.model.Jenkins;
-import org.kohsuke.stapler.AncestorInPath;
-import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.QueryParameter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import shaded.com.google.common.base.MoreObjects;
 import shaded.com.google.common.base.Preconditions;
 import shaded.com.google.common.base.Predicate;
 import shaded.com.google.common.base.Throwables;
 import shaded.com.google.common.collect.Iterables;
-
-import javax.annotation.CheckForNull;
-import javax.servlet.ServletException;
-import javax.ws.rs.ProcessingException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.*;
-import java.util.concurrent.Callable;
-
-import static com.nirima.jenkins.plugins.docker.client.ClientConfigBuilderForPlugin.dockerClientConfig;
 
 /**
  * Docker Cloud configuration. Contains connection configuration,
@@ -58,8 +69,10 @@ public class DockerCloud extends Cloud {
     private static final Logger LOGGER = LoggerFactory.getLogger(DockerCloud.class);
 
     private List<DockerTemplate> templates;
+    //TODO: rename to dockerHostLabel
     public final String amiLabel;
-    public final String serverUrl;
+    //TODO: keep track of provisioned hosts and their usage
+    public String serverUrl;
     private int connectTimeout;
     public final int readTimeout;
     public final String version;
@@ -194,7 +207,6 @@ public class DockerCloud extends Cloud {
 
     @Override
     public synchronized Collection<NodeProvisioner.PlannedNode> provision(Label label, int excessWorkload) {
-        EC2DockerHostProvisioner.isEC2PluginInstalled();
 
         try {
             LOGGER.info("Asked to provision {} slave(s) for: {}", new Object[]{excessWorkload, label});
@@ -603,6 +615,8 @@ public class DockerCloud extends Cloud {
                 @QueryParameter String credentialsId,
                 @QueryParameter String version
         ) throws IOException, ServletException, DockerException {
+            //TODO: if there is no computer for the 'amiLabel', show a warning
+            // otherwise, perform connectivity test as usual
             try {
                 DockerClient dc = dockerClientConfig()
                         .forServer(serverUrl, version)

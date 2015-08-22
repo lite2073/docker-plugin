@@ -1,14 +1,20 @@
 package com.nirima.jenkins.plugins.docker.listener;
 
-import com.nirima.jenkins.plugins.docker.action.DockerBuildImageAction;
-import com.nirima.jenkins.plugins.docker.publisher.DockerPublisherControl;
-import hudson.Extension;
-import hudson.model.Run;
-import hudson.model.listeners.RunListener;
-
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.nirima.jenkins.plugins.docker.DockerJobProperty;
+import com.nirima.jenkins.plugins.docker.action.DockerBuildImageAction;
+
+import hudson.Extension;
+import hudson.model.AbstractProject;
+import hudson.model.Job;
+import hudson.model.Label;
+import hudson.model.Run;
+import hudson.model.TaskListener;
+import hudson.model.listeners.RunListener;
 
 /**
  * Listen for builds being deleted, and optionally clean up resources
@@ -17,7 +23,19 @@ import java.util.logging.Logger;
  */
 @Extension
 public class DockerRunListener extends RunListener<Run<?,?>> {
-    private static final Logger LOGGER = Logger.getLogger(DockerRunListener.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(DockerRunListener.class.getName());
+
+    @Override
+    @SuppressWarnings("rawtypes")
+    public void onStarted(Run<?, ?> run, TaskListener listener) {
+        // already too late, slave has been provisioned at this point
+        LOGGER.info("Job started: id={}", run.getId());
+        Job<?, ?> job = run.getParent();
+        DockerJobProperty jobProperty =  job.getProperty(DockerJobProperty.class);
+        if (jobProperty != null) { // docker job
+            Label dockerImageLabel = ((AbstractProject) job).getAssignedLabel();
+        }
+    }
 
     @Override
     public void onDeleted(Run<?, ?> run) {

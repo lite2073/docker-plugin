@@ -12,6 +12,7 @@ public class DockerCloudTest {
     public void testConstructor_0_10_2() {
         new DockerCloud("name",
                 Collections.<DockerTemplate>emptyList(), //templates
+                "ami",
                 "http://localhost:4243", //serverUrl
                 100, //containerCap,
                 10, // connectTimeout,

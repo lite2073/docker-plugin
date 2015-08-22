@@ -51,6 +51,7 @@ public class ClientBuilderForPluginTest {
     public void shouldGetUriVersionReadTimeoutSettingsFromCloud() throws Exception {
         DockerCloud cloud = new DockerCloud(CLOUD_NAME,
                 Collections.<DockerTemplate>emptyList(),
+                "ami",
                 HTTP_SERVER_URL,
                 EMPTY_CONTAINER_CAP,
                 CONNECT_TIMEOUT, READ_TIMEOUT, EMPTY_CREDS, DOCKER_API_VER);
