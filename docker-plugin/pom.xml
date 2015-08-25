@@ -3,10 +3,9 @@
     <parent>
         <groupId>com.nirima</groupId>
         <artifactId>docker-plugin-parent</artifactId>
-        <version>0.11.0</version>
+        <version>0.11.0.BUILD-SNAPSHOT</version>
     </parent>
 
-    <groupId>com.nirima</groupId>
     <artifactId>docker-plugin</artifactId>    
     <packaging>hpi</packaging>
 
@@ -81,7 +80,6 @@
             <plugin>
                 <groupId>org.jenkins-ci.tools</groupId>
                 <artifactId>maven-hpi-plugin</artifactId>
-                <version>${hpi.plugin.version}</version>
                 <dependencies>
                     <dependency>
                         <groupId>com.google.guava</groupId>
