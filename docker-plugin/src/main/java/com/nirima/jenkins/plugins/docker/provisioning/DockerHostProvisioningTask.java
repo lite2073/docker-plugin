@@ -57,7 +57,7 @@ public class DockerHostProvisioningTask extends AbstractQueueTask implements Con
     public DockerHostProvisioningTask(Task dockerTask) {
         this.dockerTask = dockerTask;
         this.dockerCloud = findMatchingDockerCloud(dockerTask.getAssignedLabel());
-        this.dockerHostLabelString = this.dockerCloud.amiLabel;
+        this.dockerHostLabelString = this.dockerCloud.dockerHostLabel;
         this.dockerHostLabel = Jenkins.getInstance().getLabelAtom(this.dockerHostLabelString);
         this.dockerImageLabel = dockerTask.getAssignedLabel().getDisplayName();
     }

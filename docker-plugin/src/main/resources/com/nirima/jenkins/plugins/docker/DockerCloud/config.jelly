@@ -5,7 +5,7 @@
         <f:textbox/>
     </f:entry>
 
-    <f:entry title="${%AMI Label}" field="amiLabel">
+    <f:entry title="${%Docker Host Label}" field="dockerHostLabel">
         <f:textbox/>
     </f:entry>
 
@@ -30,7 +30,7 @@
     </f:entry>
 
     <f:validateButton title="${%Test Connection}" progress="${%Testing...}" method="testConnection"
-                      with="amiLabel,serverUrl,credentialsId,version"/>
+                      with="dockerHostLabel,serverUrl,credentialsId,version"/>
 
     <f:entry title="${%Container Cap}" field="containerCap">
         <f:number/>

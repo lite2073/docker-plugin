@@ -70,7 +70,7 @@ public class DockerCloud extends Cloud {
 
     private List<DockerTemplate> templates;
     //TODO: rename to dockerHostLabel
-    public final String amiLabel;
+    public final String dockerHostLabel;
     //TODO: keep track of provisioned hosts and their usage
     public String serverUrl;
     private int connectTimeout;
@@ -94,7 +94,7 @@ public class DockerCloud extends Cloud {
     @Deprecated
     public DockerCloud(String name,
                        List<? extends DockerTemplate> templates,
-                       String amiLabel,
+                       String dockerHostLabel,
                        String serverUrl,
                        String containerCapStr,
                        int connectTimeout,
@@ -105,8 +105,8 @@ public class DockerCloud extends Cloud {
         Preconditions.checkNotNull(serverUrl);
         this.version = version;
         this.credentialsId = credentialsId;
-        // TODO: validate AMI label against list of registered AMI labels
-        this.amiLabel = amiLabel;
+        // TODO: validate docker host label against list of registered labels
+        this.dockerHostLabel = dockerHostLabel;
         this.serverUrl = serverUrl;
         this.connectTimeout = connectTimeout;
         this.readTimeout = readTimeout;
@@ -127,7 +127,7 @@ public class DockerCloud extends Cloud {
     @DataBoundConstructor
     public DockerCloud(String name,
                        List<? extends DockerTemplate> templates,
-                       String amiLabel,
+                       String dockerHostLabel,
                        String serverUrl,
                        int containerCap,
                        int connectTimeout,
@@ -138,8 +138,8 @@ public class DockerCloud extends Cloud {
         Preconditions.checkNotNull(serverUrl);
         this.version = version;
         this.credentialsId = credentialsId;
-        // TODO: validate AMI label against list of registered AMI labels
-        this.amiLabel = amiLabel;
+        // TODO: validate docker host label against list of registered labels
+        this.dockerHostLabel = dockerHostLabel;
         this.serverUrl = serverUrl;
         this.connectTimeout = connectTimeout;
         this.readTimeout = readTimeout;
@@ -539,7 +539,7 @@ public class DockerCloud extends Cloud {
     public String toString() {
         return MoreObjects.toStringHelper(this)
                 .add("name", name)
-                .add("amiLabel", amiLabel)
+                .add("dockerHostLabel", dockerHostLabel)
                 .add("serverUrl", serverUrl)
                 .toString();
     }
@@ -548,7 +548,7 @@ public class DockerCloud extends Cloud {
     public int hashCode() {
         final int prime = 31;
         int result = 1;
-        result = prime * result + ((amiLabel == null) ? 0 : amiLabel.hashCode());
+        result = prime * result + ((dockerHostLabel == null) ? 0 : dockerHostLabel.hashCode());
         result = prime * result + connectTimeout;
         result = prime * result + containerCap;
         result = prime * result + ((credentialsId == null) ? 0 : credentialsId.hashCode());
@@ -568,10 +568,10 @@ public class DockerCloud extends Cloud {
         if (getClass() != obj.getClass())
             return false;
         DockerCloud other = (DockerCloud) obj;
-        if (amiLabel == null) {
-            if (other.amiLabel != null)
+        if (dockerHostLabel == null) {
+            if (other.dockerHostLabel != null)
                 return false;
-        } else if (!amiLabel.equals(other.amiLabel))
+        } else if (!dockerHostLabel.equals(other.dockerHostLabel))
             return false;
         if (connectTimeout != other.connectTimeout)
             return false;
@@ -610,12 +610,12 @@ public class DockerCloud extends Cloud {
         }
 
         public FormValidation doTestConnection(
-                @QueryParameter String amiLabel,
+                @QueryParameter String dockerHostLabel,
                 @QueryParameter String serverUrl,
                 @QueryParameter String credentialsId,
                 @QueryParameter String version
         ) throws IOException, ServletException, DockerException {
-            //TODO: if there is no computer for the 'amiLabel', show a warning
+            //TODO: if there is no computer for the 'dockerHostLabel', show a warning
             // otherwise, perform connectivity test as usual
             try {
                 DockerClient dc = dockerClientConfig()
