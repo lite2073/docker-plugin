@@ -69,7 +69,6 @@ public class DockerCloud extends Cloud {
     private static final Logger LOGGER = LoggerFactory.getLogger(DockerCloud.class);
 
     private List<DockerTemplate> templates;
-    //TODO: rename to dockerHostLabel
     public final String dockerHostLabel;
     //TODO: keep track of provisioned hosts and their usage
     public String serverUrl;
@@ -631,8 +630,9 @@ public class DockerCloud extends Cloud {
             }
         }
 
-        public ListBoxModel doFillCredentialsIdItems(@AncestorInPath ItemGroup context) {
+        public ListBoxModel doFillCredentialsIdItems(@AncestorInPath ItemGroup<?> context) {
 
+            @SuppressWarnings("deprecation")
             List<StandardCertificateCredentials> credentials = CredentialsProvider.lookupCredentials(StandardCertificateCredentials.class, context);
 
             return new CredentialsListBoxModel().withEmptySelection()
@@ -642,6 +642,8 @@ public class DockerCloud extends Cloud {
 
         public static class CredentialsListBoxModel
                 extends AbstractIdCredentialsListBoxModel<CredentialsListBoxModel, StandardCertificateCredentials> {
+            private static final long serialVersionUID = 8318969697112130030L;
+
             @NonNull
             protected String describe(@NonNull StandardCertificateCredentials c) {
                 return CredentialsNameProvider.name(c);
