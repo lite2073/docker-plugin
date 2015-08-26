@@ -37,7 +37,6 @@ public class ClientBuilderForPluginTest {
     public static final int READ_TIMEOUT = 10;
     public static final String EMPTY_CREDS = "";
     public static final int CONNECT_TIMEOUT = 0;
-    public static final String EMPTY_CONTAINER_CAP = "";
 
     public static final String ID_OF_CREDS = "idcreds";
     public static final String USERNAME = "usrname";
@@ -51,9 +50,9 @@ public class ClientBuilderForPluginTest {
     public void shouldGetUriVersionReadTimeoutSettingsFromCloud() throws Exception {
         DockerCloud cloud = new DockerCloud(CLOUD_NAME,
                 Collections.<DockerTemplate>emptyList(),
-                "ami",
+                "docker-host-abel",
                 HTTP_SERVER_URL,
-                EMPTY_CONTAINER_CAP,
+                100,
                 CONNECT_TIMEOUT, READ_TIMEOUT, EMPTY_CREDS, DOCKER_API_VER);
         ClientConfigBuilderForPlugin builder = dockerClientConfig();
         builder.forCloud(cloud);

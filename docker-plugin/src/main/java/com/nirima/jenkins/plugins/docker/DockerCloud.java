@@ -90,39 +90,6 @@ public class DockerCloud extends Cloud {
      */
     private static final HashMap<String, Integer> provisionedImages = new HashMap<>();
 
-    @Deprecated
-    public DockerCloud(String name,
-                       List<? extends DockerTemplate> templates,
-                       String dockerHostLabel,
-                       String serverUrl,
-                       String containerCapStr,
-                       int connectTimeout,
-                       int readTimeout,
-                       String credentialsId,
-                       String version) {
-        super(name);
-        Preconditions.checkNotNull(serverUrl);
-        this.version = version;
-        this.credentialsId = credentialsId;
-        // TODO: validate docker host label against list of registered labels
-        this.dockerHostLabel = dockerHostLabel;
-        this.serverUrl = serverUrl;
-        this.connectTimeout = connectTimeout;
-        this.readTimeout = readTimeout;
-
-        if (templates != null) {
-            this.templates = new ArrayList<>(templates);
-        } else {
-            this.templates = Collections.emptyList();
-        }
-
-        if (containerCapStr.equals("")) {
-            setContainerCap(Integer.MAX_VALUE);
-        } else {
-            setContainerCap(Integer.parseInt(containerCapStr));
-        }
-    }
-
     @DataBoundConstructor
     public DockerCloud(String name,
                        List<? extends DockerTemplate> templates,
