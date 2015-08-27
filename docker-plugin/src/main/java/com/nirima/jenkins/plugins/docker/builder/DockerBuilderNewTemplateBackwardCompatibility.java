@@ -29,7 +29,6 @@ public abstract class DockerBuilderNewTemplateBackwardCompatibility extends Buil
             javaPath,
             prefixStartSlaveCmd,
             suffixStartSlaveCmd,
-            instanceCapStr,
             dnsString,
             dockerCommand,
             volumesString,
@@ -64,7 +63,7 @@ public abstract class DockerBuilderNewTemplateBackwardCompatibility extends Buil
         );
 
         final DockerTemplate dockerTemplate = new DockerTemplate(dockerTemplateBase, labelString, remoteFs,
-                remoteFsMapping, instanceCapStr, Node.Mode.NORMAL, 1, dockerComputerSSHLauncher,
+                remoteFsMapping, Node.Mode.NORMAL, 1, dockerComputerSSHLauncher,
                 new DockerOnceRetentionStrategy(10), false, DockerImagePullStrategy.PULL_LATEST);
         setDockerTemplate(dockerTemplate);
     }

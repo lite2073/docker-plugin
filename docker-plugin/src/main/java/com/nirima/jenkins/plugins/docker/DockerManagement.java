@@ -1,19 +1,18 @@
 package com.nirima.jenkins.plugins.docker;
 
-import shaded.com.google.common.base.Function;
-import shaded.com.google.common.collect.Collections2;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-import com.github.dockerjava.api.model.Container;
-
+import org.apache.commons.codec.binary.Base64;
 import org.kohsuke.stapler.StaplerProxy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.util.Collection;
-import java.util.List;
-
-import javax.annotation.Nullable;
+import com.github.dockerjava.api.model.Container;
 
 import hudson.Extension;
 import hudson.model.Describable;
@@ -21,6 +20,7 @@ import hudson.model.Descriptor;
 import hudson.model.ManagementLink;
 import hudson.model.Saveable;
 import jenkins.model.Jenkins;
+import net.sf.json.JSONObject;
 
 
 
@@ -77,51 +77,63 @@ public class DockerManagement extends ManagementLink implements StaplerProxy, De
         }
     }
 
-        public DockerManagementServer getServer(String serverName) {
-            return new DockerManagementServer(serverName);
-        }
+    public DockerManagementServer getServer(String encodedHostId) {
+        return new DockerManagementServer(encodedHostId);
+    }
 
         public Object getTarget() {
             Jenkins.getInstance().checkPermission(Jenkins.ADMINISTER);
             return this;
         }
 
-        public Collection<String> getServerNames() {
-            return Collections2.transform(PluginImpl.getInstance().getServers(), new Function<DockerCloud, String>() {
-                public String apply(@Nullable DockerCloud input) {
-                    return input.getDisplayName();
-                }
-            });
+    public static class DockerHost {
+        final String cloudName;
+        final String hostUrl;
+        final DockerCloud cloud;
+
+        public DockerHost(String cloudName, String hostUrl, DockerCloud cloud) {
+            this.cloudName = cloudName;
+            this.hostUrl = hostUrl;
+            this.cloud = cloud;
         }
 
-        public static class ServerDetail {
-            final DockerCloud cloud;
-
-            public ServerDetail(DockerCloud cloud) {
-                this.cloud = cloud;
-            }
-
-            public String getName() {
-                return cloud.getDisplayName();
-            }
-
-            public String getActiveHosts() {
-                try {
-                    List<Container> containers = cloud.getClient().listContainersCmd().exec();
-                    return "(" + containers.size() + ")";
-                } catch(Exception ex) {
-                    return "Error";
-                }
-            }
-
+        public String getCloudName() {
+            return cloudName;
         }
 
-        public Collection<ServerDetail> getServers() {
-            return Collections2.transform(PluginImpl.getInstance().getServers(), new Function<DockerCloud, ServerDetail>() {
-                public ServerDetail apply(@Nullable DockerCloud input) {
-                    return new ServerDetail(input);
-                }
-            });
+        public String getHostUrl() {
+            return hostUrl;
         }
+
+        public String getEncodedHostId() {
+            return encodeHostId(cloudName, hostUrl);
+        }
+
+        public String getActiveContainerCount() {
+            try {
+                List<Container> containers = cloud.getClient(hostUrl).listContainersCmd().exec();
+                return "(" + containers.size() + ")";
+            } catch (Exception ex) {
+                return "Error";
+            }
+        }
+
+        public static String encodeHostId(String cloudName, String hostUrl) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("cloudName", cloudName);
+            map.put("hostUrl", hostUrl);
+            return Base64.encodeBase64URLSafeString(JSONObject.fromObject(map).toString().getBytes());
+        }
+    }
+
+    public Collection<DockerHost> getDockerHosts() {
+        List<DockerHost> dockerHosts = new ArrayList<>();
+        for (DockerCloud cloud : PluginImpl.getInstance().getServers()) {
+            for (String dockerHostUrl : cloud.findDockerHostUrls()) {
+                dockerHosts.add(new DockerHost(cloud.getDisplayName(), dockerHostUrl, cloud));
+            }
+        }
+        return dockerHosts;
+    }
 
 }

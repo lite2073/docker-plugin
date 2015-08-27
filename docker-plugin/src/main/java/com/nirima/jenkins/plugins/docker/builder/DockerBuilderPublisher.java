@@ -134,7 +134,7 @@ public class DockerBuilderPublisher extends Builder implements Serializable {
 
                 // Don't build it yet. This may happen on a remote server.
                 clientConfig = ClientConfigBuilderForPlugin.dockerClientConfig()
-                        .forCloud(cloudThatBuildRanOn.get()).build();
+                        .forCloud(url, cloudThatBuildRanOn.get()).build();
 
             } else {
                 clientConfig = null;
@@ -300,7 +300,7 @@ public class DockerBuilderPublisher extends Builder implements Serializable {
         Node node = build.getBuiltOn();
         if (node instanceof DockerSlave) {
             DockerSlave slave = (DockerSlave) node;
-            return slave.getCloud().serverUrl;
+            return slave.getHostUrl();
         }
 
 

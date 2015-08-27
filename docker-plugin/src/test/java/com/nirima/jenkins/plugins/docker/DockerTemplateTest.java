@@ -19,7 +19,6 @@ public class DockerTemplateTest {
     Integer cpuShares = 1000;
     String prefixStartSlaveCmd = "prefixStartSlaveCmd";
     String suffixStartSlaveCmd = " suffixStartSlaveCmd";
-    String instanceCapStr = "";
 
     String dockerCommand = "dockerCommand";
     String volumesString = "volumes";
@@ -42,8 +41,7 @@ public class DockerTemplateTest {
                 dockerTemplateBase,
                 labelString,
                 remoteFs,
-                remoteFsMapping,
-                instanceCapStr
+                remoteFsMapping
         );
 
         return dockerTemplate;

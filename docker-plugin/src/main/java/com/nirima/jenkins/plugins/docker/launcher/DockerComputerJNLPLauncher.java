@@ -79,7 +79,7 @@ public class DockerComputerJNLPLauncher extends DockerComputerLauncher {
         final DockerComputer dockerComputer = (DockerComputer) computer;
         final String containerId = dockerComputer.getContainerId();
         final String rootUrl = Jenkins.getInstance().getRootUrl();
-        final DockerClient connect = dockerComputer.getCloud().getClient();
+        final DockerClient connect = dockerComputer.getCloud().getClient(dockerComputer.getHostUrl());
         final DockerTemplate dockerTemplate = dockerComputer.getNode().getDockerTemplate();
 
         // exec jnlp connection in running container
@@ -160,7 +160,7 @@ public class DockerComputerJNLPLauncher extends DockerComputerLauncher {
     }
 
     @Override
-    public ComputerLauncher getPreparedLauncher(String cloudId, DockerTemplate template, InspectContainerResponse containerInspectResponse) {
+    public ComputerLauncher getPreparedLauncher(String dockerHostUrl, DockerTemplate template, InspectContainerResponse containerInspectResponse) {
         return new DockerComputerJNLPLauncher(getJnlpLauncher());
     }
 
@@ -198,8 +198,8 @@ public class DockerComputerJNLPLauncher extends DockerComputerLauncher {
     }
 
     @Override
-    public boolean waitUp(String cloudId, DockerTemplate dockerTemplate, InspectContainerResponse ir) {
-        return super.waitUp(cloudId, dockerTemplate, ir);
+    public boolean waitUp(String dockerHostUrl, DockerTemplate dockerTemplate, InspectContainerResponse ir) {
+        return super.waitUp(dockerHostUrl, dockerTemplate, ir);
     }
 
     @Override

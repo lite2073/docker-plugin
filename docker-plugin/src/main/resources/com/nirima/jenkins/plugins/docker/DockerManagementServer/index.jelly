@@ -19,7 +19,7 @@
             <j:set var="instance" value="${it}"/>
             <j:set var="descriptor" value="${it.descriptor}"/>
 
-            <h1>${%Docker Server} ${it.name}</h1>
+            <h1>${%Docker Host} ${it.hostUrl}</h1>
 
             <H2>Running Containers</H2>
 

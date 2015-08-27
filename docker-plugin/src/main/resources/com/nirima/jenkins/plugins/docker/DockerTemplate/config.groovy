@@ -13,10 +13,6 @@ if (instance == null) {
 
 f.property(field: "dockerTemplateBase")
 
-f.entry(title: _("Instance Capacity"), field: "instanceCapStr") {
-    f.textbox()
-}
-
 f.entry(title: _("Remote Filing System Root"), field: "remoteFs") {
     f.textbox()
 }

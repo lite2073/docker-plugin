@@ -48,7 +48,7 @@ public class DockerHostProvisioningTask extends AbstractQueueTask implements Con
     private static final Logger LOGGER = LoggerFactory.getLogger(DockerHostProvisioningTask.class);
 
     // for persistence
-    private final String dockerImageLabel;
+    private final String dockerContainerLabel;
     private final String dockerHostLabelString;
     private final transient Task dockerTask;
     private transient Label dockerHostLabel;
@@ -59,7 +59,7 @@ public class DockerHostProvisioningTask extends AbstractQueueTask implements Con
         this.dockerCloud = findMatchingDockerCloud(dockerTask.getAssignedLabel());
         this.dockerHostLabelString = this.dockerCloud.dockerHostLabel;
         this.dockerHostLabel = Jenkins.getInstance().getLabelAtom(this.dockerHostLabelString);
-        this.dockerImageLabel = dockerTask.getAssignedLabel().getDisplayName();
+        this.dockerContainerLabel = dockerTask.getAssignedLabel().getDisplayName();
     }
 
     @Override
@@ -128,32 +128,31 @@ public class DockerHostProvisioningTask extends AbstractQueueTask implements Con
 
             @Override
             public void run() throws AsynchronousExecution {
-                LOGGER.info("Provisioning docker hosts if necessary... dockerHostLabel={}",
-                            dockerHostLabel.getDisplayName());
-                DockerHostFinder dockerHostFinder = new DockerHostFinder(dockerHostLabel, dockerCloud.serverUrl);
-                String host = dockerHostFinder.findDockerHost();
-                URI old = URI.create(dockerCloud.serverUrl);
-                try {
+                LOGGER.info("Provisioning docker hosts if necessary... dockerHostLabel={}", dockerHostLabelString);
+//                DockerHostFinder dockerHostFinder = new DockerHostFinder(dockerHostLabel, dockerCloud.serverUrl);
+//                String host = dockerHostFinder.findDockerHost();
+//                URI old = URI.create(dockerCloud.serverUrl);
+//                try {
                     // TODO: make setting serverUrl thread-safe and support multiple dynamic docker
                     // hosts
-                    dockerCloud.serverUrl = new URI(old.getScheme(), old.getUserInfo(), host, old.getPort(),
-                        old.getPath(), old.getQuery(), old.getFragment()).toString();
-                    LOGGER.info("Will provision container on host with serverUrl={}", dockerCloud.serverUrl);
+//                    dockerCloud.serverUrl = new URI(old.getScheme(), old.getUserInfo(), host, old.getPort(),
+//                        old.getPath(), old.getQuery(), old.getFragment()).toString();
+//                    LOGGER.info("Will provision container on host with serverUrl={}", dockerCloud.serverUrl);
 
                     // dockerTask wont' be restored from deserialization as task serialization
                     // doesn't seem to work properly
                     if (dockerTask != null) {
                         LOGGER.info("Rescheduling docker task and cancelling docker host provisioning task... dockerTaskName=\"{}\" dockerTaskLabel=\"{}\" dockerHostLabel=\"{}\"",
-                                    dockerTask.getDisplayName(), dockerTask.getAssignedLabel(), dockerHostLabel);
+                                    dockerTask.getDisplayName(), dockerTask.getAssignedLabel(), dockerHostLabelString);
                         Queue queue = Jenkins.getInstance().getQueue();
                         // reschedule docker task
                         queue.schedule(dockerTask, 0);
                         // cancel docker host provisioning task
                         queue.cancel(DockerHostProvisioningTask.this);
                     }
-                } catch (URISyntaxException e) {
-                    LOGGER.error("Unexpected error", e);
-                }
+//                } catch (URISyntaxException e) {
+//                    LOGGER.error("Unexpected error", e);
+//                }
             }
 
             @Override
@@ -192,7 +191,7 @@ public class DockerHostProvisioningTask extends AbstractQueueTask implements Con
     public Object readResolve() {
         // restore transient fields
         this.dockerHostLabel = Jenkins.getInstance().getLabelAtom(this.dockerHostLabelString);
-        this.dockerCloud = findMatchingDockerCloud(Jenkins.getInstance().getLabelAtom(this.dockerImageLabel));
+        this.dockerCloud = findMatchingDockerCloud(Jenkins.getInstance().getLabelAtom(this.dockerContainerLabel));
         return this;
     }
 

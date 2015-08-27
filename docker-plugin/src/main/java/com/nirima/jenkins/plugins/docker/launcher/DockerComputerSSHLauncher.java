@@ -47,10 +47,10 @@ public class DockerComputerSSHLauncher extends DockerComputerLauncher {
         return sshConnector;
     }
 
-    public ComputerLauncher getPreparedLauncher(String cloudId, DockerTemplate dockerTemplate, InspectContainerResponse inspect) {
+    public ComputerLauncher getPreparedLauncher(String dockerHostUrl, DockerTemplate dockerTemplate, InspectContainerResponse inspect) {
         final DockerComputerSSHLauncher prepLauncher = new DockerComputerSSHLauncher(null); // don't care, we need only launcher
 
-        prepLauncher.setLauncher(getSSHLauncher(cloudId, dockerTemplate, inspect));
+        prepLauncher.setLauncher(getSSHLauncher(dockerHostUrl, dockerTemplate, inspect));
 
         return prepLauncher;
     }
@@ -71,10 +71,10 @@ public class DockerComputerSSHLauncher extends DockerComputerLauncher {
     }
 
     @Override
-    public boolean waitUp(String cloudId, DockerTemplate dockerTemplate, InspectContainerResponse containerInspect) {
-        super.waitUp(cloudId, dockerTemplate, containerInspect);
+    public boolean waitUp(String dockerHostUrl, DockerTemplate dockerTemplate, InspectContainerResponse containerInspect) {
+        super.waitUp(dockerHostUrl, dockerTemplate, containerInspect);
 
-        final PortUtils portUtils = getPortUtils(cloudId, dockerTemplate, containerInspect);
+        final PortUtils portUtils = getPortUtils(dockerHostUrl, dockerTemplate, containerInspect);
         if (!portUtils.withEveryRetryWaitFor(10, TimeUnit.SECONDS)) {
             return false;
         }
@@ -88,12 +88,12 @@ public class DockerComputerSSHLauncher extends DockerComputerLauncher {
         return true;
     }
 
-    private SSHLauncher getSSHLauncher(String cloudId, DockerTemplate template, InspectContainerResponse inspect) {
+    private SSHLauncher getSSHLauncher(String dockerHostUrl, DockerTemplate template, InspectContainerResponse inspect) {
         Preconditions.checkNotNull(template);
         Preconditions.checkNotNull(inspect);
 
         try {
-            final PortUtils portUtils = getPortUtils(cloudId, template, inspect);
+            final PortUtils portUtils = getPortUtils(dockerHostUrl, template, inspect);
             LOGGER.log(Level.INFO, "Creating slave SSH launcher for " + portUtils.host + ":" + portUtils.port);
             return new SSHLauncher(portUtils.host, portUtils.port, sshConnector.getCredentials(),
                     sshConnector.jvmOptions,
@@ -104,7 +104,7 @@ public class DockerComputerSSHLauncher extends DockerComputerLauncher {
         }
     }
 
-    public PortUtils getPortUtils(String cloudId, DockerTemplate dockerTemplate, InspectContainerResponse ir) {
+    public PortUtils getPortUtils(String dockerHostUrl, DockerTemplate dockerTemplate, InspectContainerResponse ir) {
         // get exposed port
         ExposedPort sshPort = new ExposedPort(sshConnector.port);
         String host = null;
@@ -122,7 +122,7 @@ public class DockerComputerSSHLauncher extends DockerComputerLauncher {
 
         //get address, if docker on localhost, then use local?
         if (host == null || host.equals("0.0.0.0")) {
-            host = URI.create(DockerCloud.getCloudByName(cloudId).serverUrl).getHost();
+            host = URI.create(dockerHostUrl).getHost();
         }
 
         return PortUtils.canConnect(host, port);

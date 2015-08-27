@@ -79,7 +79,6 @@ public class DockerBuilderNewTemplate extends DockerBuilderNewTemplateBackwardCo
         this.cpuShares = cpuShares;
         this.prefixStartSlaveCmd = prefixStartSlaveCmd;
         this.suffixStartSlaveCmd = suffixStartSlaveCmd;
-        this.instanceCapStr = instanceCapStr;
         this.dnsString = dnsString;
         this.dockerCommand = dockerCommand;
         this.volumesString = volumesString;

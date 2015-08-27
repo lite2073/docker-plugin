@@ -24,15 +24,10 @@ public abstract class DockerBuilderControlCloudOption extends DockerBuilderContr
     }
 
     protected DockerCloud getCloud(AbstractBuild<?, ?> build) {
-        DockerCloud cloud = null;
+        DockerSlave slave = getDockerSlave(build);
+        DockerCloud cloud = slave != null ? slave.getCloud() : null;
 
-        Node node = build.getBuiltOn();
-        if( node instanceof DockerSlave) {
-            DockerSlave dockerSlave = (DockerSlave)node;
-            cloud = dockerSlave.getCloud();
-        }
-
-        if( !Strings.isNullOrEmpty(cloudName) ) {
+        if (cloud == null && !Strings.isNullOrEmpty(cloudName)) {
             cloud = (DockerCloud) Jenkins.getInstance().getCloud(cloudName);
         }
 
@@ -44,8 +39,16 @@ public abstract class DockerBuilderControlCloudOption extends DockerBuilderContr
     }
 
     protected DockerClient getClient(AbstractBuild<?, ?> build) {
-        DockerCloud cloud = getCloud(build);
+        DockerSlave slave = getDockerSlave(build);
+        if (slave == null) {
+            throw new IllegalStateException("Couldn't find the docker slave associated with the build");
+        }
+        DockerCloud cloud = slave.getCloud();
+        return cloud.getClient(slave.getHostUrl());
+    }
 
-        return cloud.getClient();
+    private DockerSlave getDockerSlave(AbstractBuild<?, ?> build) {
+        Node node = build.getBuiltOn();
+        return node instanceof DockerSlave ? (DockerSlave) node : null;
     }
 }

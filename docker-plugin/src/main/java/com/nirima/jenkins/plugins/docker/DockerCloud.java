@@ -10,6 +10,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 
 import javax.annotation.CheckForNull;
@@ -21,6 +22,7 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.util.Assert;
 
 import com.cloudbees.plugins.credentials.CredentialsMatchers;
 import com.cloudbees.plugins.credentials.CredentialsNameProvider;
@@ -38,6 +40,8 @@ import com.github.dockerjava.api.model.Image;
 import com.github.dockerjava.api.model.Version;
 import com.github.dockerjava.core.NameParser;
 import com.nirima.jenkins.plugins.docker.launcher.DockerComputerLauncher;
+import com.nirima.jenkins.plugins.docker.provisioning.DockerHostFinder;
+import com.nirima.jenkins.plugins.docker.provisioning.EC2DockerHostFinder;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
@@ -68,27 +72,28 @@ public class DockerCloud extends Cloud {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DockerCloud.class);
 
-    private List<DockerTemplate> templates;
+    private final List<DockerTemplate> templates;
     public final String dockerHostLabel;
-    //TODO: keep track of provisioned hosts and their usage
-    public String serverUrl;
-    private int connectTimeout;
+    public final String serverUrl;
+    //TODO: is this used?
+    public final int connectTimeout;
     public final int readTimeout;
     public final String version;
     public final String credentialsId;
 
     private transient DockerClient connection;
+    private transient DockerHostFinder dockerHostFinder;
 
     /**
-     * Total max allowed number of containers
+     * Total max allowed number of containers per docker host
      */
     private int containerCap = 100;
 
     /**
-     * Track the count per image name for images currently being
-     * provisioned, but not necessarily reported yet by docker.
+     * Track the container count per docker host currently being provisioned, but not necessarily
+     * reported yet by docker.
      */
-    private static final HashMap<String, Integer> provisionedImages = new HashMap<>();
+    private static final Map<String, Integer> PROVISIONED_CONTAINER_COUNTS = new HashMap<>();
 
     @DataBoundConstructor
     public DockerCloud(String name,
@@ -105,6 +110,7 @@ public class DockerCloud extends Cloud {
         this.version = version;
         this.credentialsId = credentialsId;
         // TODO: validate docker host label against list of registered labels
+        // can be null
         this.dockerHostLabel = dockerHostLabel;
         this.serverUrl = serverUrl;
         this.connectTimeout = connectTimeout;
@@ -117,22 +123,14 @@ public class DockerCloud extends Cloud {
         }
 
         setContainerCap(containerCap);
+
+        if (EC2DockerHostFinder.isEC2PluginInstalled()) {
+            dockerHostFinder = new EC2DockerHostFinder(dockerHostLabel, serverUrl);
+        }
     }
 
     public int getConnectTimeout() {
         return connectTimeout;
-    }
-
-    /**
-     * @deprecated use {@link #getContainerCap()}
-     */
-    @Deprecated
-    public String getContainerCapStr() {
-        if (containerCap == Integer.MAX_VALUE) {
-            return "";
-        } else {
-            return String.valueOf(containerCap);
-        }
     }
 
     public int getContainerCap() {
@@ -144,13 +142,22 @@ public class DockerCloud extends Cloud {
     }
 
     /**
+     * Finds URLs of all docker hosts for this cloud.
+     */
+    public Collection<String> findDockerHostUrls() {
+        return dockerHostFinder != null ? dockerHostFinder.findDockerHostUrls() : Collections.singleton(serverUrl);
+    }
+
+    /**
      * Connects to Docker.
+     * 
+     * @param dockerHostUrl Docker host URL
      *
      * @return Docker client.
      */
-    public synchronized DockerClient getClient() {
+    public synchronized DockerClient getClient(String dockerHostUrl) {
         if (connection == null) {
-            connection = dockerClientConfig().forCloud(this).buildClient();
+            connection = dockerClientConfig().forCloud(dockerHostUrl, this).buildClient();
         }
 
         return connection;
@@ -159,15 +166,19 @@ public class DockerCloud extends Cloud {
     /**
      * Decrease the count of slaves being "provisioned".
      */
-    private void decrementAmiSlaveProvision(String ami) {
-        synchronized (provisionedImages) {
+    private void decrementDockerSlaveProvision(String dockerHostUrl) {
+        synchronized (PROVISIONED_CONTAINER_COUNTS) {
             int currentProvisioning;
             try {
-                currentProvisioning = provisionedImages.get(ami);
+                currentProvisioning = PROVISIONED_CONTAINER_COUNTS.get(dockerHostUrl);
             } catch (NullPointerException npe) {
                 return;
             }
-            provisionedImages.put(ami, Math.max(currentProvisioning - 1, 0));
+            if (currentProvisioning <= 1) {
+                PROVISIONED_CONTAINER_COUNTS.remove(dockerHostUrl);
+            } else {
+                PROVISIONED_CONTAINER_COUNTS.put(dockerHostUrl, currentProvisioning - 1);
+            }
         }
     }
 
@@ -175,54 +186,56 @@ public class DockerCloud extends Cloud {
     public synchronized Collection<NodeProvisioner.PlannedNode> provision(Label label, int excessWorkload) {
 
         try {
-            LOGGER.info("Asked to provision {} slave(s) for: {}", new Object[]{excessWorkload, label});
+            LOGGER.info("Asked to provision {} slave(s) for label={}", new Object[] { excessWorkload, label });
 
             List<NodeProvisioner.PlannedNode> r = new ArrayList<>();
 
-            final List<DockerTemplate> templates = getTemplates(label);
+            final DockerTemplate template = getTemplate(label);
+            Assert.state(template != null,
+                         String.format("Cannot provision label=%s due to lack of matching templates", label));
+            String image = template.getDockerTemplateBase().getImage();
 
-            while (excessWorkload > 0 && !templates.isEmpty()) {
-                final DockerTemplate t = templates.get(0); // get first
-
-                LOGGER.info("Will provision '{}', for label: '{}', in cloud: '{}'",
-                        t.getDockerTemplateBase().getImage(), label, getDisplayName());
+            for (final String dockerHostUrl : findDockerHostUrls()) {
+                LOGGER.info("Will provision image='{}', for label='{}', in cloud='{}' on dockerHostUrl={}", image,
+                            label, getDisplayName(), dockerHostUrl);
 
                 try {
-                    if (!addProvisionedSlave(t)) {
-                        templates.remove(t);
+                    if (!canProvisionOneMoreInstance(dockerHostUrl, image)) {
                         continue;
                     }
                 } catch (Exception e) {
-                    LOGGER.warn("Bad template '{}' in cloud '{}': '{}'. Trying next template...",
-                            t.getDockerTemplateBase().getImage(), getDisplayName(), e.getMessage());
-                    templates.remove(t);
+                    LOGGER.warn("Bad template image='{}' in cloud='{}' dockerHostUrl={}: '{}'. Trying next template...",
+                                template.getDockerTemplateBase().getImage(), getDisplayName(), dockerHostUrl,
+                                e.getMessage());
                     continue;
                 }
 
-                r.add(new NodeProvisioner.PlannedNode(
-                                t.getDockerTemplateBase().getDisplayName(),
-                                Computer.threadPoolForRemoting.submit(new Callable<Node>() {
-                                    public Node call() throws Exception {
-                                        try {
-                                            return provisionWithWait(t);
-                                        } catch (Exception ex) {
-                                            LOGGER.error("Error in provisioning; template='{}' for cloud='{}'",
-                                                    t, getDisplayName(), ex);
-                                            throw Throwables.propagate(ex);
-                                        } finally {
-                                            decrementAmiSlaveProvision(t.getDockerTemplateBase().getImage());
-                                        }
-                                    }
-                                }),
-                                t.getNumExecutors())
-                );
+                r.add(new NodeProvisioner.PlannedNode(template.getDockerTemplateBase().getDisplayName(),
+                    Computer.threadPoolForRemoting.submit(new Callable<Node>() {
+                        public Node call() throws Exception {
+                            try {
+                                return provisionWithWait(dockerHostUrl, template);
+                            } catch (Exception ex) {
+                                LOGGER.error("Error in provisioning; template='{}' for cloud='{}' dockerHostUrl={}",
+                                             template, getDisplayName(), dockerHostUrl, ex);
+                                throw Throwables.propagate(ex);
+                            } finally {
+                                decrementDockerSlaveProvision(dockerHostUrl);
+                            }
+                        }
+                    }), template.getNumExecutors()));
 
-                excessWorkload -= t.getNumExecutors();
+                excessWorkload -= template.getNumExecutors();
+                if (excessWorkload <= 0) {
+                    break;
+                }
             }
 
             return r;
+        } catch (IllegalStateException e) {
+            throw e;
         } catch (Exception e) {
-            LOGGER.error("Exception while provisioning for label: '{}', cloud='{}'", label, getDisplayName(), e);
+            LOGGER.error("Exception while provisioning for label='{}', cloud='{}'", label, getDisplayName(), e);
             return Collections.emptyList();
         }
     }
@@ -281,10 +294,10 @@ public class DockerCloud extends Cloud {
         return containerId;
     }
 
-    private void pullImage(DockerTemplate dockerTemplate)  throws IOException {
+    private void pullImage(String dockerHostUrl, DockerTemplate dockerTemplate)  throws IOException {
         final String imageName = dockerTemplate.getDockerTemplateBase().getImage();
 
-        List<Image> images = getClient().listImagesCmd().exec();
+        List<Image> images = getClient(dockerHostUrl).listImagesCmd().exec();
 
         NameParser.ReposTag repostag = NameParser.parseRepositoryTag(imageName);
         // if image was specified without tag, then treat as latest
@@ -307,7 +320,7 @@ public class DockerCloud extends Cloud {
 
             long startTime = System.currentTimeMillis();
             //Identifier amiId = Identifier.fromCompoundString(ami);
-            try (InputStream imageStream = getClient().pullImageCmd(imageName).exec()) {
+            try (InputStream imageStream = getClient(dockerHostUrl).pullImageCmd(imageName).exec()) {
                 int streamValue = 0;
                 while (streamValue != -1) {
                     streamValue = imageStream.read();
@@ -318,42 +331,34 @@ public class DockerCloud extends Cloud {
         }
     }
 
-    private DockerSlave provisionWithWait(DockerTemplate dockerTemplate) throws IOException, Descriptor.FormException {
-        pullImage(dockerTemplate);
+    private DockerSlave provisionWithWait(String dockerHostUrl, DockerTemplate dockerTemplate) throws IOException, Descriptor.FormException {
+        pullImage(dockerHostUrl, dockerTemplate);
 
         LOGGER.info("Trying to run container for {}", dockerTemplate.getDockerTemplateBase().getImage());
-        final String containerId = runContainer(dockerTemplate, getClient(), dockerTemplate.getLauncher());
+        final String containerId = runContainer(dockerTemplate, getClient(dockerHostUrl), dockerTemplate.getLauncher());
 
         InspectContainerResponse ir;
         try {
-            ir = getClient().inspectContainerCmd(containerId).exec();
+            ir = getClient(dockerHostUrl).inspectContainerCmd(containerId).exec();
         } catch (ProcessingException ex) {
-            getClient().removeContainerCmd(containerId).withForce(true).exec();
+            getClient(dockerHostUrl).removeContainerCmd(containerId).withForce(true).exec();
             throw ex;
         }
 
         // Build a description up:
         String nodeDescription = "Docker Node [" + dockerTemplate.getDockerTemplateBase().getImage() + " on ";
         try {
-            nodeDescription += getDisplayName();
+            nodeDescription += getDisplayName() + "@" + dockerHostUrl;
         } catch (Exception ex) {
             nodeDescription += "???";
         }
         nodeDescription += "]";
 
-        String slaveName = containerId.substring(0, 12);
+        dockerTemplate.getLauncher().waitUp(dockerHostUrl, dockerTemplate, ir);
 
-        try {
-            slaveName = getDisplayName() + "-" + slaveName;
-        } catch (Exception ex) {
-            LOGGER.warn("Error fetching cloud name");
-        }
+        final ComputerLauncher launcher = dockerTemplate.getLauncher().getPreparedLauncher(dockerHostUrl, dockerTemplate, ir);
 
-        dockerTemplate.getLauncher().waitUp(getDisplayName(), dockerTemplate, ir);
-
-        final ComputerLauncher launcher = dockerTemplate.getLauncher().getPreparedLauncher(getDisplayName(), dockerTemplate, ir);
-
-        return new DockerSlave(slaveName, nodeDescription, launcher, containerId, dockerTemplate, getDisplayName());
+        return new DockerSlave(nodeDescription, launcher, containerId, dockerTemplate, getDisplayName(), dockerHostUrl);
     }
 
     @Override
@@ -424,66 +429,30 @@ public class DockerCloud extends Cloud {
     }
 
     /**
-     * Counts the number of instances in Docker currently running that are using the specified image.
-     *
-     * @param imageName If null, then all instances are counted.
-     *            <p/>
-     *            This includes those instances that may be started outside Hudson.
+     * Can we provision one more instance on the given docker host?
      */
-    public int countCurrentDockerSlaves(final String imageName) throws Exception {
-        int count = 0;
-        List<Container> containers = getClient().listContainersCmd().exec();
+    private synchronized boolean canProvisionOneMoreInstance(String dockerHostUrl, String image) throws Exception {
+        List<Container> containers = getClient(dockerHostUrl).listContainersCmd().exec();
+        int estimatedTotalSlaves = containers.size();
 
-        if (imageName == null) {
-            count = containers.size();
-        } else {
-            for (Container container : containers) {
-                String containerImage = container.getImage();
-                if (containerImage.equals(imageName)) {
-                    count++;
-                }
-            }
-        }
-
-        return count;
-    }
-
-    /**
-     * Check not too many already running.
-     */
-    private synchronized boolean addProvisionedSlave(DockerTemplate t) throws Exception {
-        String ami = t.getDockerTemplateBase().getImage();
-        int amiCap = t.instanceCap;
-
-        int estimatedTotalSlaves = countCurrentDockerSlaves(null);
-        int estimatedAmiSlaves = countCurrentDockerSlaves(ami);
-
-        synchronized (provisionedImages) {
+        synchronized (PROVISIONED_CONTAINER_COUNTS) {
             int currentProvisioning = 0;
-            if (provisionedImages.containsKey(ami)) {
-                currentProvisioning = provisionedImages.get(ami);
+            if (PROVISIONED_CONTAINER_COUNTS.containsKey(dockerHostUrl)) {
+                currentProvisioning = PROVISIONED_CONTAINER_COUNTS.get(dockerHostUrl);
             }
 
-            for (int amiCount : provisionedImages.values()) {
-                estimatedTotalSlaves += amiCount;
-            }
-
-            estimatedAmiSlaves += currentProvisioning;
+            estimatedTotalSlaves += currentProvisioning;
 
             if (estimatedTotalSlaves >= getContainerCap()) {
-                LOGGER.info("Not Provisioning '{}'; Server '{}' full with '{}' container(s)", ami, getContainerCap(), name);
-                return false;      // maxed out
+                LOGGER.info("Not Provisioning '{}'; Server cloud='{}' dockerHostUrl={} reached capacity with '{}' container(s)",
+                            image, getContainerCap(), getDisplayName(), dockerHostUrl);
+                return false; // maxed out
             }
 
-            if (amiCap != 0 && estimatedAmiSlaves >= amiCap) {
-                LOGGER.info("Not Provisioning '{}'. Instance limit of '{}' reached on server '{}'", ami, amiCap, name);
-                return false;      // maxed out
-            }
+            LOGGER.info("Provisioning '{}' container number '{}' on cloud='{}' dockerHostUrl={}", image,
+                        estimatedTotalSlaves, getDisplayName(), dockerHostUrl);
 
-            LOGGER.info("Provisioning '{}' number '{}' on '{}'; Total containers: '{}'",
-                    ami, estimatedAmiSlaves, name, estimatedTotalSlaves);
-
-            provisionedImages.put(ami, currentProvisioning + 1);
+            PROVISIONED_CONTAINER_COUNTS.put(dockerHostUrl, currentProvisioning + 1);
             return true;
         }
     }
@@ -496,6 +465,10 @@ public class DockerCloud extends Cloud {
         //Xstream is not calling readResolve() for nested Describable's
         for (DockerTemplate template : getTemplates()) {
             template.readResolve();
+        }
+
+        if (EC2DockerHostFinder.isEC2PluginInstalled()) {
+            dockerHostFinder = new EC2DockerHostFinder(dockerHostLabel, serverUrl);
         }
 
         return this;

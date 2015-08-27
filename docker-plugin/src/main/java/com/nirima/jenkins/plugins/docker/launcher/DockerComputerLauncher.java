@@ -4,7 +4,6 @@ package com.nirima.jenkins.plugins.docker.launcher;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.nirima.jenkins.plugins.docker.DockerTemplate;
-import com.nirima.jenkins.plugins.docker.DockerTemplateBase;
 import hudson.model.TaskListener;
 import hudson.slaves.ComputerLauncher;
 import hudson.slaves.DelegatingComputerLauncher;
@@ -27,7 +26,7 @@ public abstract class DockerComputerLauncher extends ComputerLauncher {
     /**
      * Return valid configured launcher that will be used for launching slave
      */
-    public abstract ComputerLauncher getPreparedLauncher(String cloudId,
+    public abstract ComputerLauncher getPreparedLauncher(String dockerHostUrl,
                                                          DockerTemplate dockerTemplate,
                                                          InspectContainerResponse ir);
 
@@ -41,7 +40,7 @@ public abstract class DockerComputerLauncher extends ComputerLauncher {
     /**
      * Wait until slave is up and ready for connection.
      */
-    public boolean waitUp(String cloudId, DockerTemplate dockerTemplate, InspectContainerResponse containerInspect) {
+    public boolean waitUp(String dockerHostUrl, DockerTemplate dockerTemplate, InspectContainerResponse containerInspect) {
         if (!containerInspect.getState().isRunning()) {
             throw new IllegalStateException("Container '" + containerInspect.getId() + "' is not running!");
         }

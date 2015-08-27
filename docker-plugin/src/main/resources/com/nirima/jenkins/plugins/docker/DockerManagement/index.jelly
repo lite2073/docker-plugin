@@ -1,7 +1,7 @@
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout"
          xmlns:t="/lib/hudson" xmlns:f="/lib/form" xmlns:i="jelly:fmt">
-    <l:layout title="${%Docker hosts}" norefresh="true" permission="${it.requiredPermission}">
+    <l:layout title="${%Docker Hosts}" norefresh="true" permission="${it.requiredPermission}">
         <l:side-panel>
             <l:tasks>
                 <l:task icon="images/24x24/up.gif" href="${rootURL}/" title="${%Back to Dashboard}"/>
@@ -11,22 +11,23 @@
             <j:set var="instance" value="${it}"/>
             <j:set var="descriptor" value="${it.descriptor}"/>
 
-            <h1>${%Docker Servers}</h1>
+            <h1>${%Docker Hosts}</h1>
 
 
             <table border="0" cellpadding="2" cellspacing="0"
                    class="pane bigtable"
                    style="margin-top: 0">
                 <tr>
-
-                    <td class="pane-header">${%Name}</td>
-                    <td class="pane-header">${%Active Hosts}</td>
+                    <td class="pane-header">${%Host URL}</td>
+                    <td class="pane-header">${%Cloud Name}</td>
+                    <td class="pane-header">${%Container Count}</td>
                 </tr>
 
-                <j:forEach var="res" items="${it.servers}">
+                <j:forEach var="host" items="${it.dockerHosts}">
                     <tr>
-                        <td><a href="server/${res.name}"> ${res.name} </a></td>
-                        <td>${res.activeHosts}</td>
+                        <td><a href="server/${host.encodedHostId}"> ${host.hostUrl} </a></td>
+                        <td>${host.cloudName}</td>
+                        <td>${host.activeContainerCount}</td>
                     </tr>
                 </j:forEach>
 

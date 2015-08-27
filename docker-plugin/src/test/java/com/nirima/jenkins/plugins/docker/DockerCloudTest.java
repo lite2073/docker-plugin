@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -44,6 +45,7 @@ import com.github.dockerjava.api.model.Image;
 import com.github.dockerjava.core.DockerClientConfig;
 import com.nirima.jenkins.plugins.docker.client.ClientBuilderForPlugin;
 import com.nirima.jenkins.plugins.docker.launcher.DockerComputerLauncher;
+import com.nirima.jenkins.plugins.docker.provisioning.DockerHostFinder;
 
 import hudson.ExtensionList;
 import hudson.model.Computer;
@@ -65,6 +67,9 @@ public class DockerCloudTest {
 
     private static final String DOCKER_CLOUD_NAME = "docker";
     private static final String CONTAINER_ID = "containerId1";
+    private static final String DOCKER_HOST_URL = "http://docker.host:2375";
+    private static final String DOCKER_HOST_URL2 = "https://docker2.host:2376";
+    private static final int CONTAINER_CAP = 2;
 
     private DockerClient dockerClientMock;
 
@@ -75,8 +80,8 @@ public class DockerCloudTest {
         // called by Label#parse(String)
         when(hudsonMock.getLabelAtom("label1")).thenReturn(new LabelAtom("label1"));
         // self-label for the container
-        when(hudsonMock.getLabelAtom(DOCKER_CLOUD_NAME + "-" + CONTAINER_ID)).thenReturn(new LabelAtom(
-            DOCKER_CLOUD_NAME + "-" + CONTAINER_ID));
+        String slaveName = DockerSlave.makeUniqueName(DOCKER_CLOUD_NAME, DOCKER_HOST_URL, CONTAINER_ID);
+        when(hudsonMock.getLabelAtom(slaveName)).thenReturn(new LabelAtom(slaveName));
         // called by ExtensionList#lookup()
         ExtensionList<LabelFinder> extensionListMock = mock(ExtensionList.class);
         when(hudsonMock.getExtensionList(LabelFinder.class)).thenReturn(extensionListMock);
@@ -126,11 +131,111 @@ public class DockerCloudTest {
     }
 
     @Test
+    public void provision_oneDockerHost_containersFull() {
+        ListContainersCmd listContainersCmd = mock(ListContainersCmd.class);
+        when(dockerClientMock.listContainersCmd()).thenReturn(listContainersCmd);
+        List<Container> containers = new ArrayList<>();
+        for (int i = 0; i < CONTAINER_CAP; i++) {
+            containers.add(new Container());
+        }
+        when(listContainersCmd.exec()).thenReturn(containers);
+
+        DockerCloud cloud = newCloud("label1");
+        DockerHostFinder dockerHostFinder = mock(DockerHostFinder.class);
+        when(dockerHostFinder.findDockerHostUrls()).thenReturn(Collections.singleton(DOCKER_HOST_URL));
+        Whitebox.setInternalState(cloud, DockerHostFinder.class, dockerHostFinder);
+
+        Label label = new LabelAtom("label1");
+        Collection<PlannedNode> nodes = cloud.provision(label, 1);
+        assertEquals(0, nodes.size());
+    }
+
+    @Test
+    public void provision_oneDockerHost_overProvisioned() {
+        ListContainersCmd listContainersCmd = mock(ListContainersCmd.class);
+        when(dockerClientMock.listContainersCmd()).thenReturn(listContainersCmd);
+        when(listContainersCmd.exec()).thenReturn(Collections.<Container>emptyList());
+
+        DockerCloud cloud = newCloud("label1");
+        DockerHostFinder dockerHostFinder = mock(DockerHostFinder.class);
+        when(dockerHostFinder.findDockerHostUrls()).thenReturn(Collections.singleton(DOCKER_HOST_URL));
+        Whitebox.setInternalState(cloud, DockerHostFinder.class, dockerHostFinder);
+        Map<String, Integer> privisionedContainerCounts = Whitebox.getInternalState(DockerCloud.class,
+                                                                                    "PROVISIONED_CONTAINER_COUNTS");
+        privisionedContainerCounts.put(DOCKER_HOST_URL, CONTAINER_CAP);
+
+        try {
+            Label label = new LabelAtom("label1");
+            Collection<PlannedNode> nodes = cloud.provision(label, 1);
+            assertEquals(0, nodes.size());
+        } finally {
+            // ensure the static field is reset for other tests
+            privisionedContainerCounts.clear();
+        }
+    }
+
+    @Test
+    public void provision_twoDockerHosts_firstOverProvisioned_secondUnderprovisioned() {
+        ListContainersCmd listContainersCmd = mock(ListContainersCmd.class);
+        when(dockerClientMock.listContainersCmd()).thenReturn(listContainersCmd);
+        when(listContainersCmd.exec()).thenReturn(Collections.<Container>emptyList());
+
+        DockerCloud cloud = newCloud("label1");
+        DockerHostFinder dockerHostFinder = mock(DockerHostFinder.class);
+        List<String> dockerHostUrls = new ArrayList<>();
+        dockerHostUrls.add(DOCKER_HOST_URL);
+        dockerHostUrls.add(DOCKER_HOST_URL2);
+        when(dockerHostFinder.findDockerHostUrls()).thenReturn(dockerHostUrls);
+        Whitebox.setInternalState(cloud, DockerHostFinder.class, dockerHostFinder);
+        Map<String, Integer> privisionedContainerCounts = Whitebox.getInternalState(DockerCloud.class,
+                                                                                    "PROVISIONED_CONTAINER_COUNTS");
+        privisionedContainerCounts.put(DOCKER_HOST_URL, CONTAINER_CAP);
+
+        try {
+            Label label = new LabelAtom("label1");
+            Collection<PlannedNode> nodes = cloud.provision(label, 1);
+            assertEquals(1, nodes.size());
+            assertEquals(cloud.getTemplates().get(0).getDockerTemplateBase().getDisplayName(),
+                         nodes.iterator().next().displayName);
+        } finally {
+            // ensure the static field is reset for other tests
+            privisionedContainerCounts.clear();
+        }
+    }
+
+    @Test
+    public void provision_twoDockerHosts_firstOverProvisioned_secondOverprovisioned() {
+        ListContainersCmd listContainersCmd = mock(ListContainersCmd.class);
+        when(dockerClientMock.listContainersCmd()).thenReturn(listContainersCmd);
+        when(listContainersCmd.exec()).thenReturn(Collections.<Container>emptyList());
+
+        DockerCloud cloud = newCloud("label1");
+        DockerHostFinder dockerHostFinder = mock(DockerHostFinder.class);
+        List<String> dockerHostUrls = new ArrayList<>();
+        dockerHostUrls.add(DOCKER_HOST_URL);
+        dockerHostUrls.add(DOCKER_HOST_URL2);
+        when(dockerHostFinder.findDockerHostUrls()).thenReturn(dockerHostUrls);
+        Whitebox.setInternalState(cloud, DockerHostFinder.class, dockerHostFinder);
+        Map<String, Integer> privisionedContainerCounts = Whitebox.getInternalState(DockerCloud.class,
+                                                                                    "PROVISIONED_CONTAINER_COUNTS");
+        privisionedContainerCounts.put(DOCKER_HOST_URL, CONTAINER_CAP);
+        privisionedContainerCounts.put(DOCKER_HOST_URL2, CONTAINER_CAP);
+
+        try {
+            Label label = new LabelAtom("label1");
+            Collection<PlannedNode> nodes = cloud.provision(label, 1);
+            assertEquals(0, nodes.size());
+        } finally {
+            // ensure the static field is reset for other tests
+            privisionedContainerCounts.clear();
+        }
+    }
+
+    @Test(expected = IllegalStateException.class)
     public void provision_templateNotExistForLabel() throws Exception {
         DockerCloud cloud = newCloud("label1");
         Label label = new LabelAtom("label2");
-        Collection<PlannedNode> nodes = cloud.provision(label, 1);
-        assertEquals(0, nodes.size());
+        cloud.provision(label, 1);
     }
 
     @Test
@@ -204,18 +309,18 @@ public class DockerCloudTest {
     private DockerCloud newCloud(String templateLabel) {
         DockerTemplate template1 = newTemplate(templateLabel);
         List<DockerTemplate> templates = Collections.singletonList(template1);
-        return new DockerCloud(DOCKER_CLOUD_NAME, templates, "docker-host-label", "http://localhost", 100, 10, 10, null,
-            null);
+        return new DockerCloud(DOCKER_CLOUD_NAME, templates, "docker-host-label", DOCKER_HOST_URL, CONTAINER_CAP, 10,
+            10, null, null);
     }
 
     private DockerTemplate newTemplate(String label) {
         DockerTemplateBase base = new DockerTemplateBase("image-" + label, null, null, null, null, null, null, null,
             null, null, null, false, false, false, null);
-        DockerTemplate template = new DockerTemplate(base, label, null, null, "");
+        DockerTemplate template = new DockerTemplate(base, label, null, null);
         template.setLauncher(new DockerComputerLauncher() {
 
             @Override
-            public ComputerLauncher getPreparedLauncher(String cloudId, DockerTemplate dockerTemplate,
+            public ComputerLauncher getPreparedLauncher(String dockerHostUrl, DockerTemplate dockerTemplate,
                 InspectContainerResponse ir) {
                 return this;
             }

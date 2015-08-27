@@ -45,15 +45,16 @@ public class ClientConfigBuilderForPlugin {
     /**
      * Provides ready to use docker client with information from docker cloud
      *
-     * @param cloud docker cloud with info about url, version, creds and timeout
+     * @param dockerHostUrl docker host URL
+     * @param cloud docker cloud with info about version, creds and timeout
      *
      * @return docker-java client
      */
-    public ClientConfigBuilderForPlugin forCloud(DockerCloud cloud) {
+    public ClientConfigBuilderForPlugin forCloud(String dockerHostUrl, DockerCloud cloud) {
         LOGGER.log(Level.FINE, "Building connection to docker host \"{0}\" at: {1}",
-                new Object[]{cloud.getDisplayName(), cloud.serverUrl});
+                new Object[]{cloud.getDisplayName(), dockerHostUrl});
 
-        forServer(cloud.serverUrl, cloud.version);
+        forServer(dockerHostUrl, cloud.version);
 
         if (cloud.readTimeout > 0) {
             config.withReadTimeout((int) SECONDS.toMillis(cloud.readTimeout));

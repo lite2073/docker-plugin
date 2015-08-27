@@ -42,8 +42,6 @@ public class DockerTemplate extends DockerTemplateBackwardCompatibility implemen
 
     public String remoteFs = "/home/jenkins";
 
-    public final int instanceCap;
-
     private Node.Mode mode = Node.Mode.NORMAL;
 
     private RetentionStrategy retentionStrategy = new DockerOnceRetentionStrategy(10);
@@ -64,26 +62,18 @@ public class DockerTemplate extends DockerTemplateBackwardCompatibility implemen
     public DockerTemplate() {
         this.labelString = "";
         this.remoteFsMapping = "";
-        this.instanceCap = 1;
     }
 
     @DataBoundConstructor
     public DockerTemplate(DockerTemplateBase dockerTemplateBase,
                           String labelString,
                           String remoteFs,
-                          String remoteFsMapping,
-                          String instanceCapStr
+                          String remoteFsMapping
     ) {
         this.dockerTemplateBase = dockerTemplateBase;
         this.labelString = Util.fixNull(labelString);
         this.remoteFs = Strings.isNullOrEmpty(remoteFs) ? "/home/jenkins" : remoteFs;
         this.remoteFsMapping = remoteFsMapping;
-
-        if (instanceCapStr.equals("")) {
-            this.instanceCap = Integer.MAX_VALUE;
-        } else {
-            this.instanceCap = Integer.parseInt(instanceCapStr);
-        }
 
         labelSet = Label.parse(labelString);
     }
@@ -96,7 +86,6 @@ public class DockerTemplate extends DockerTemplateBackwardCompatibility implemen
                           String labelString,
                           String remoteFs,
                           String remoteFsMapping,
-                          String instanceCapStr,
                           Node.Mode mode,
                           int numExecutors,
                           DockerComputerLauncher launcher,
@@ -106,8 +95,7 @@ public class DockerTemplate extends DockerTemplateBackwardCompatibility implemen
         this(dockerTemplateBase,
                 labelString,
                 remoteFs,
-                remoteFsMapping,
-                instanceCapStr);
+                remoteFsMapping);
         setMode(mode);
         setNumExecutors(numExecutors);
         setLauncher(launcher);
@@ -196,18 +184,6 @@ public class DockerTemplate extends DockerTemplateBackwardCompatibility implemen
         return remoteFs;
     }
 
-    public String getInstanceCapStr() {
-        if (instanceCap == Integer.MAX_VALUE) {
-            return "";
-        } else {
-            return String.valueOf(instanceCap);
-        }
-    }
-
-    public int getInstanceCap() {
-        return instanceCap;
-    }
-
     public String getRemoteFsMapping() {
         return remoteFsMapping;
     }
@@ -277,7 +253,6 @@ public class DockerTemplate extends DockerTemplateBackwardCompatibility implemen
                 ", launcher=" + launcher +
                 ", remoteFsMapping='" + remoteFsMapping + '\'' +
                 ", remoteFs='" + remoteFs + '\'' +
-                ", instanceCap=" + instanceCap +
                 ", mode=" + mode +
                 ", retentionStrategy=" + retentionStrategy +
                 ", numExecutors=" + numExecutors +

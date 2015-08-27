@@ -26,6 +26,8 @@ public class DockerSlave extends AbstractCloudSlave {
 
     public DockerTemplate dockerTemplate;
 
+    private final String hostUrl;
+
     // remember container id
     @CheckForNull private String containerId;
 
@@ -34,12 +36,21 @@ public class DockerSlave extends AbstractCloudSlave {
 
     private transient Run theRun;
 
-    public DockerSlave(DockerTemplate dockerTemplate, String containerId,
+    public DockerSlave(String nodeDescription, ComputerLauncher launcher, String containerId,
+        DockerTemplate dockerTemplate, String cloudId, String hostUrl) throws IOException, Descriptor.FormException {
+        this(dockerTemplate, containerId, makeUniqueName(cloudId, hostUrl, containerId), nodeDescription,
+            dockerTemplate.getRemoteFs(), dockerTemplate.getNumExecutors(), dockerTemplate.getMode(),
+            dockerTemplate.getLabelString(), launcher, dockerTemplate.getRetentionStrategyCopy(),
+            Collections.<NodeProperty<?>>emptyList(), hostUrl);
+    }
+
+    private DockerSlave(DockerTemplate dockerTemplate, String containerId,
                        String name, String nodeDescription,
                        String remoteFS, int numExecutors, Mode mode,
                        String labelString, ComputerLauncher launcher,
                        RetentionStrategy retentionStrategy,
-                       List<? extends NodeProperty<?>> nodeProperties)
+                       List<? extends NodeProperty<?>> nodeProperties,
+                       String hostUrl)
             throws Descriptor.FormException, IOException {
         super(name, nodeDescription, remoteFS, numExecutors, mode, labelString, launcher, retentionStrategy, nodeProperties);
         Preconditions.checkNotNull(dockerTemplate);
@@ -47,24 +58,7 @@ public class DockerSlave extends AbstractCloudSlave {
 
         setDockerTemplate(dockerTemplate);
         this.containerId = containerId;
-    }
-
-    public DockerSlave(String slaveName, String nodeDescription, ComputerLauncher launcher, String containerId,
-                       DockerTemplate dockerTemplate, String cloudId)
-            throws IOException, Descriptor.FormException {
-        super(slaveName,
-                nodeDescription, //description
-                dockerTemplate.getRemoteFs(),
-                dockerTemplate.getNumExecutors(),
-                dockerTemplate.getMode(),
-                dockerTemplate.getLabelString(),
-                launcher,
-                dockerTemplate.getRetentionStrategyCopy(),
-                Collections.<NodeProperty<?>>emptyList()
-        );
-        setContainerId(containerId);
-        setDockerTemplate(dockerTemplate);
-        setCloudId(cloudId);
+        this.hostUrl = hostUrl;
     }
 
     public String getContainerId() {
@@ -81,6 +75,10 @@ public class DockerSlave extends AbstractCloudSlave {
 
     public void setCloudId(String cloudId) {
         this.cloudId = cloudId;
+    }
+
+    public String getHostUrl() {
+        return hostUrl;
     }
 
     public DockerTemplate getDockerTemplate() {
@@ -112,6 +110,12 @@ public class DockerSlave extends AbstractCloudSlave {
 
     public void setRun(Run run) {
         this.theRun = run;
+    }
+
+    public static String makeUniqueName(String dockerCloudName, String dockerHostUrl, String containerId) {
+        String normalizedDockerHostUrl = dockerHostUrl.endsWith("/")
+            ? dockerHostUrl.substring(0, dockerHostUrl.length() - 1) : dockerHostUrl;
+        return dockerCloudName + "@" + normalizedDockerHostUrl + "/" + containerId;
     }
 
     @Override
@@ -257,7 +261,7 @@ public class DockerSlave extends AbstractCloudSlave {
     }
 
     public DockerClient getClient() {
-        return getCloud().getClient();
+        return getCloud().getClient(hostUrl);
     }
 
     /**

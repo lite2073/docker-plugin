@@ -32,6 +32,8 @@ public class DockerComputer extends AbstractCloudComputer<DockerSlave> {
 
     private String cloudId;
 
+    private final String hostUrl;
+
     public DockerComputer(DockerSlave dockerSlave) {
         super(dockerSlave);
         setContainerId(dockerSlave.getContainerId());
@@ -41,6 +43,7 @@ public class DockerComputer extends AbstractCloudComputer<DockerSlave> {
                 return getNode().containerExistsInCloud();
             }
         });
+        this.hostUrl = dockerSlave.getHostUrl();
     }
 
     public DockerCloud getCloud() {
@@ -95,6 +98,10 @@ public class DockerComputer extends AbstractCloudComputer<DockerSlave> {
     public void setContainerId(String containerId) {
         this.containerId = containerId;
         getNode().setContainerId(containerId); // set for clean-ups
+    }
+
+    public String getHostUrl() {
+        return hostUrl;
     }
 
     public String getCloudId() {

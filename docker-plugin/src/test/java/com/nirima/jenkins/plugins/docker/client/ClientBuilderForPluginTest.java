@@ -7,14 +7,21 @@ import com.github.dockerjava.core.DockerClientConfig;
 import com.nirima.jenkins.plugins.docker.DockerCloud;
 import com.nirima.jenkins.plugins.docker.DockerTemplate;
 import edu.umd.cs.findbugs.annotations.NonNull;
+import hudson.model.Hudson;
 import hudson.model.ItemGroup;
+import hudson.model.labels.LabelAtom;
+import jenkins.model.Jenkins;
+
 import org.acegisecurity.Authentication;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.TestExtension;
 import org.jvnet.hudson.test.WithoutJenkins;
+import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.modules.junit4.PowerMockRunner;
 
 import java.util.Collections;
 import java.util.List;
@@ -25,10 +32,15 @@ import static java.util.Arrays.asList;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.mockito.Mockito.when;
+import static org.powermock.api.mockito.PowerMockito.mock;
+import static org.powermock.api.mockito.PowerMockito.mockStatic;
 
 /**
  * @author lanwen (Merkushev Kirill)
  */
+@RunWith(PowerMockRunner.class)
+@PrepareForTest({ Jenkins.class })
 public class ClientBuilderForPluginTest {
 
     public static final String HTTP_SERVER_URL = "http://server.url/";
@@ -48,14 +60,21 @@ public class ClientBuilderForPluginTest {
     @Test
     @WithoutJenkins
     public void shouldGetUriVersionReadTimeoutSettingsFromCloud() throws Exception {
+        Hudson hudsonMock = mock(Hudson.class);
+        // called by Label#parse(String)
+        when(hudsonMock.getLabelAtom("label1")).thenReturn(new LabelAtom("label1"));
+        // mock Jenkins#getInstance()
+        mockStatic(Jenkins.class);
+        when(Jenkins.getInstance()).thenReturn(hudsonMock);
+
         DockerCloud cloud = new DockerCloud(CLOUD_NAME,
                 Collections.<DockerTemplate>emptyList(),
-                "docker-host-abel",
+                "label1",
                 HTTP_SERVER_URL,
                 100,
                 CONNECT_TIMEOUT, READ_TIMEOUT, EMPTY_CREDS, DOCKER_API_VER);
         ClientConfigBuilderForPlugin builder = dockerClientConfig();
-        builder.forCloud(cloud);
+        builder.forCloud(HTTP_SERVER_URL, cloud);
 
         DockerClientConfig config = builder.config().build();
         assertThat("server", config.getUri().toString(), equalTo(HTTP_SERVER_URL));
