@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.codec.Charsets;
 import org.apache.commons.codec.binary.Base64;
 import org.kohsuke.stapler.StaplerProxy;
 import org.slf4j.Logger;
@@ -122,7 +123,7 @@ public class DockerManagement extends ManagementLink implements StaplerProxy, De
             Map<String, Object> map = new HashMap<>();
             map.put("cloudName", cloudName);
             map.put("hostUrl", hostUrl);
-            return Base64.encodeBase64URLSafeString(JSONObject.fromObject(map).toString().getBytes());
+            return Base64.encodeBase64URLSafeString(JSONObject.fromObject(map).toString().getBytes(Charsets.UTF_8));
         }
     }
 

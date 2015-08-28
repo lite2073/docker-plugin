@@ -148,6 +148,7 @@ public abstract class DockerHostFinder {
         LOG.info("Trying to connect to {}:{}...", host, dockerHostPort);
         try (Socket socket = new Socket()) {
             socket.connect(new InetSocketAddress(host, dockerHostPort), 10000);
+            LOG.info("Able to connect to {}:{}", host, dockerHostPort);
             return true;
         } catch (Exception e) {
             LOG.warn("Failed to connect to {}:{}", host, dockerHostPort);
