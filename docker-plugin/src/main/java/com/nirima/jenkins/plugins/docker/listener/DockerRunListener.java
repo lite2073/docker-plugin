@@ -28,12 +28,12 @@ public class DockerRunListener extends RunListener<Run<?,?>> {
     @Override
     @SuppressWarnings("rawtypes")
     public void onStarted(Run<?, ?> run, TaskListener listener) {
-        // already too late, slave has been provisioned at this point
-        LOGGER.info("Job started: id={}", run.getId());
         Job<?, ?> job = run.getParent();
-        DockerJobProperty jobProperty =  job.getProperty(DockerJobProperty.class);
+        DockerJobProperty jobProperty = job.getProperty(DockerJobProperty.class);
         if (jobProperty != null) { // docker job
-            Label dockerImageLabel = ((AbstractProject) job).getAssignedLabel();
+            Label label = ((AbstractProject) job).getAssignedLabel();
+            LOGGER.info("Docker job started: name='{}' id={} dockerImageLabel={}", run.getFullDisplayName(),
+                        run.getId(), label);
         }
     }
 
