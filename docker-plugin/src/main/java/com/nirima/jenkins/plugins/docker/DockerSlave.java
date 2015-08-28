@@ -113,7 +113,8 @@ public class DockerSlave extends AbstractCloudSlave {
     public static String makeUniqueName(String dockerCloudName, String dockerHostUrl, String containerId) {
         String normalizedDockerHostUrl = dockerHostUrl.endsWith("/")
             ? dockerHostUrl.substring(0, dockerHostUrl.length() - 1) : dockerHostUrl;
-        return dockerCloudName + "@" + normalizedDockerHostUrl + "/" + containerId;
+        String shortenedContainerId = containerId.substring(0, Math.min(12, containerId.length()));
+        return dockerCloudName + " @ " + normalizedDockerHostUrl + " / " + shortenedContainerId;
     }
 
     @Override
