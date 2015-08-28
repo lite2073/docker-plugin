@@ -38,25 +38,23 @@ public class DockerSlave extends AbstractCloudSlave {
 
     public DockerSlave(String nodeDescription, ComputerLauncher launcher, String containerId,
         DockerTemplate dockerTemplate, String cloudId, String hostUrl) throws IOException, Descriptor.FormException {
-        this(dockerTemplate, containerId, makeUniqueName(cloudId, hostUrl, containerId), nodeDescription,
+        this(dockerTemplate, cloudId, containerId, makeUniqueName(cloudId, hostUrl, containerId), nodeDescription,
             dockerTemplate.getRemoteFs(), dockerTemplate.getNumExecutors(), dockerTemplate.getMode(),
             dockerTemplate.getLabelString(), launcher, dockerTemplate.getRetentionStrategyCopy(),
             Collections.<NodeProperty<?>>emptyList(), hostUrl);
     }
 
-    private DockerSlave(DockerTemplate dockerTemplate, String containerId,
-                       String name, String nodeDescription,
-                       String remoteFS, int numExecutors, Mode mode,
-                       String labelString, ComputerLauncher launcher,
-                       RetentionStrategy retentionStrategy,
-                       List<? extends NodeProperty<?>> nodeProperties,
-                       String hostUrl)
-            throws Descriptor.FormException, IOException {
-        super(name, nodeDescription, remoteFS, numExecutors, mode, labelString, launcher, retentionStrategy, nodeProperties);
+    private DockerSlave(DockerTemplate dockerTemplate, String cloudId, String containerId, String name,
+        String nodeDescription, String remoteFS, int numExecutors, Mode mode, String labelString,
+        ComputerLauncher launcher, RetentionStrategy retentionStrategy, List<? extends NodeProperty<?>> nodeProperties,
+        String hostUrl) throws Descriptor.FormException, IOException {
+        super(name, nodeDescription, remoteFS, numExecutors, mode, labelString, launcher, retentionStrategy,
+            nodeProperties);
         Preconditions.checkNotNull(dockerTemplate);
         Preconditions.checkNotNull(containerId);
 
         setDockerTemplate(dockerTemplate);
+        setCloudId(cloudId);
         this.containerId = containerId;
         this.hostUrl = hostUrl;
     }

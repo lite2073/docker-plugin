@@ -196,8 +196,8 @@ public class DockerCloud extends Cloud {
             String image = template.getDockerTemplateBase().getImage();
 
             for (final String dockerHostUrl : findDockerHostUrls()) {
-                LOGGER.info("Will provision image='{}', for label='{}', in cloud='{}' on dockerHostUrl={}", image,
-                            label, getDisplayName(), dockerHostUrl);
+                LOGGER.info("Attempting to provision image='{}' label='{}' cloud='{}' dockerHostUrl={}", image, label,
+                            getDisplayName(), dockerHostUrl);
 
                 try {
                     if (!canProvisionOneMoreInstance(dockerHostUrl, image)) {
@@ -444,8 +444,9 @@ public class DockerCloud extends Cloud {
             estimatedTotalSlaves += currentProvisioning;
 
             if (estimatedTotalSlaves >= getContainerCap()) {
-                LOGGER.info("Not Provisioning '{}'; Server cloud='{}' dockerHostUrl={} reached capacity with '{}' container(s)",
-                            image, getContainerCap(), getDisplayName(), dockerHostUrl);
+                LOGGER.info("Cannot provision image='{}' cloud='{}' dockerHostUrl={} as capacity is reached on the host. activeContainerCount={} currentProvisioning={}",
+                            image, getDisplayName(), dockerHostUrl, estimatedTotalSlaves, containers.size(),
+                            currentProvisioning);
                 return false; // maxed out
             }
 

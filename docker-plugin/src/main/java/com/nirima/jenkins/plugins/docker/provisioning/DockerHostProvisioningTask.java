@@ -14,8 +14,6 @@
 package com.nirima.jenkins.plugins.docker.provisioning;
 
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.List;
 
 import org.jenkinsci.plugins.durabletask.executors.ContinuedTask;
@@ -128,31 +126,16 @@ public class DockerHostProvisioningTask extends AbstractQueueTask implements Con
 
             @Override
             public void run() throws AsynchronousExecution {
-                LOGGER.info("Provisioning docker hosts if necessary... dockerHostLabel={}", dockerHostLabelString);
-//                DockerHostFinder dockerHostFinder = new DockerHostFinder(dockerHostLabel, dockerCloud.serverUrl);
-//                String host = dockerHostFinder.findDockerHost();
-//                URI old = URI.create(dockerCloud.serverUrl);
-//                try {
-                    // TODO: make setting serverUrl thread-safe and support multiple dynamic docker
-                    // hosts
-//                    dockerCloud.serverUrl = new URI(old.getScheme(), old.getUserInfo(), host, old.getPort(),
-//                        old.getPath(), old.getQuery(), old.getFragment()).toString();
-//                    LOGGER.info("Will provision container on host with serverUrl={}", dockerCloud.serverUrl);
-
-                    // dockerTask wont' be restored from deserialization as task serialization
-                    // doesn't seem to work properly
-                    if (dockerTask != null) {
-                        LOGGER.info("Rescheduling docker task and cancelling docker host provisioning task... dockerTaskName=\"{}\" dockerTaskLabel=\"{}\" dockerHostLabel=\"{}\"",
-                                    dockerTask.getDisplayName(), dockerTask.getAssignedLabel(), dockerHostLabelString);
-                        Queue queue = Jenkins.getInstance().getQueue();
-                        // reschedule docker task
-                        queue.schedule(dockerTask, 0);
-                        // cancel docker host provisioning task
-                        queue.cancel(DockerHostProvisioningTask.this);
-                    }
-//                } catch (URISyntaxException e) {
-//                    LOGGER.error("Unexpected error", e);
-//                }
+                LOGGER.info("Docker host ready for dockerHostLabel={}", dockerHostLabelString);
+                if (dockerTask != null) {
+                    LOGGER.info("Rescheduling docker task and cancelling docker host provisioning task... dockerTaskName=\"{}\" dockerTaskLabel=\"{}\" dockerHostLabel=\"{}\"",
+                                dockerTask.getDisplayName(), dockerTask.getAssignedLabel(), dockerHostLabelString);
+                    Queue queue = Jenkins.getInstance().getQueue();
+                    // reschedule docker task
+                    queue.schedule(dockerTask, 0);
+                    // cancel docker host provisioning task
+                    queue.cancel(DockerHostProvisioningTask.this);
+                }
             }
 
             @Override
