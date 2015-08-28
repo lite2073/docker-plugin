@@ -124,7 +124,7 @@ public class DockerCloud extends Cloud {
 
         setContainerCap(containerCap);
 
-        if (EC2DockerHostFinder.isEC2PluginInstalled()) {
+        if (DockerHostFinder.isEC2PluginInstalled()) {
             dockerHostFinder = new EC2DockerHostFinder(dockerHostLabel, serverUrl);
         }
     }
@@ -445,8 +445,7 @@ public class DockerCloud extends Cloud {
 
             if (estimatedTotalSlaves >= getContainerCap()) {
                 LOGGER.info("Cannot provision image='{}' cloud='{}' dockerHostUrl={} as capacity is reached on the host. activeContainerCount={} currentProvisioning={}",
-                            image, getDisplayName(), dockerHostUrl, estimatedTotalSlaves, containers.size(),
-                            currentProvisioning);
+                            image, getDisplayName(), dockerHostUrl, containers.size(), currentProvisioning);
                 return false; // maxed out
             }
 
