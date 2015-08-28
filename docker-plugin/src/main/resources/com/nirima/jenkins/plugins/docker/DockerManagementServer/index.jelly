@@ -82,7 +82,7 @@
                 <j:forEach var="res" items="${it.images}">
                     <tr>
 
-                        <td>${res.tag}</td>
+                        <td>${it.asTags(res.repoTags)}</td>
                         <td>${res.id}</td>
                         <td>${it.asTime(res.created)}</td>
                         <td>${res.virtualSize}</td>

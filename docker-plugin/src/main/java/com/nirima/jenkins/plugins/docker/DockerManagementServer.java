@@ -11,6 +11,7 @@ import org.apache.commons.codec.binary.Base64;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
+import org.springframework.util.StringUtils;
 
 import com.nirima.jenkins.plugins.docker.DockerManagement.DockerHost;
 import com.nirima.jenkins.plugins.docker.utils.Consts;
@@ -65,6 +66,10 @@ public class DockerManagementServer  implements Describable<DockerManagementServ
 
         Date dt = new Date(when);
         return dt.toString();
+    }
+
+    public String asTags(String[] tags) {
+        return StringUtils.arrayToCommaDelimitedString(tags);
     }
 
     public String getJsUrl(String jsName) {
