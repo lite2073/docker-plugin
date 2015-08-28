@@ -114,7 +114,7 @@ public class DockerSlave extends AbstractCloudSlave {
         String normalizedDockerHostUrl = dockerHostUrl.endsWith("/")
             ? dockerHostUrl.substring(0, dockerHostUrl.length() - 1) : dockerHostUrl;
         String shortenedContainerId = containerId.substring(0, Math.min(12, containerId.length()));
-        return dockerCloudName + " @ " + normalizedDockerHostUrl + " / " + shortenedContainerId;
+        return dockerCloudName + " @ " + normalizedDockerHostUrl + "/" + shortenedContainerId;
     }
 
     @Override
