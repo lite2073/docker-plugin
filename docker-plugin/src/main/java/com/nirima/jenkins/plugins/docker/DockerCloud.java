@@ -81,7 +81,6 @@ public class DockerCloud extends Cloud {
     public final String version;
     public final String credentialsId;
 
-    private transient DockerClient connection;
     private transient DockerHostFinder dockerHostFinder;
 
     /**
@@ -154,11 +153,7 @@ public class DockerCloud extends Cloud {
      * @return Docker client.
      */
     public synchronized DockerClient getClient(String dockerHostUrl) {
-        if (connection == null) {
-            connection = dockerClientConfig().forCloud(dockerHostUrl, this).buildClient();
-        }
-
-        return connection;
+        return dockerClientConfig().forCloud(dockerHostUrl, this).buildClient();
     }
 
     /**
@@ -166,12 +161,8 @@ public class DockerCloud extends Cloud {
      */
     private void decrementDockerSlaveProvision(String dockerHostUrl) {
         synchronized (PROVISIONED_CONTAINER_COUNTS) {
-            int currentProvisioning;
-            try {
-                currentProvisioning = PROVISIONED_CONTAINER_COUNTS.get(dockerHostUrl);
-            } catch (NullPointerException npe) {
-                return;
-            }
+            int currentProvisioning = PROVISIONED_CONTAINER_COUNTS.containsKey(dockerHostUrl)
+                ? PROVISIONED_CONTAINER_COUNTS.get(dockerHostUrl) : 0;
             if (currentProvisioning <= 1) {
                 PROVISIONED_CONTAINER_COUNTS.remove(dockerHostUrl);
             } else {
@@ -202,9 +193,8 @@ public class DockerCloud extends Cloud {
                         continue;
                     }
                 } catch (Exception e) {
-                    LOGGER.warn("Bad template image='{}' in cloud='{}' dockerHostUrl={}: '{}'. Trying next template...",
-                                template.getDockerTemplateBase().getImage(), getDisplayName(), dockerHostUrl,
-                                e.getMessage());
+                    LOGGER.warn("Couldn't check provisioning capacity for dockerHostUrl={} cloud='{}' image='{}' errorMessage='{}'",
+                                dockerHostUrl, getDisplayName(), image, e.getMessage());
                     continue;
                 }
 
@@ -434,11 +424,8 @@ public class DockerCloud extends Cloud {
         int estimatedTotalSlaves = containers.size();
 
         synchronized (PROVISIONED_CONTAINER_COUNTS) {
-            int currentProvisioning = 0;
-            if (PROVISIONED_CONTAINER_COUNTS.containsKey(dockerHostUrl)) {
-                currentProvisioning = PROVISIONED_CONTAINER_COUNTS.get(dockerHostUrl);
-            }
-
+            int currentProvisioning = PROVISIONED_CONTAINER_COUNTS.containsKey(dockerHostUrl)
+                ? PROVISIONED_CONTAINER_COUNTS.get(dockerHostUrl) : 0;
             estimatedTotalSlaves += currentProvisioning;
 
             if (estimatedTotalSlaves >= getContainerCap()) {
