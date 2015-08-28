@@ -9,7 +9,7 @@
         <f:textbox/>
     </f:entry>
 
-    <f:entry title="${%Docker URL}" field="serverUrl">
+    <f:entry title="${%Fallback Docker Host URL}" field="serverUrl">
         <f:textbox/>
     </f:entry>
 
