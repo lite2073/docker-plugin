@@ -124,9 +124,7 @@ public class DockerCloud extends Cloud {
 
         setContainerCap(containerCap);
 
-        if (DockerHostFinder.isEC2PluginInstalled()) {
-            dockerHostFinder = new EC2DockerHostFinder(dockerHostLabel, serverUrl);
-        }
+        initDockerHostFinder();
     }
 
     public int getConnectTimeout() {
@@ -467,11 +465,14 @@ public class DockerCloud extends Cloud {
             template.readResolve();
         }
 
-        if (EC2DockerHostFinder.isEC2PluginInstalled()) {
+        initDockerHostFinder();
+        return this;
+    }
+
+    private void initDockerHostFinder() {
+        if (DockerHostFinder.isEC2PluginInstalled()) {
             dockerHostFinder = new EC2DockerHostFinder(dockerHostLabel, serverUrl);
         }
-
-        return this;
     }
 
     @Override
